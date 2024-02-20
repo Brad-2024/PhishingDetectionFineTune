@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from huggingface_hub import HfApi, Repository
-from huggingface_hub import login
+from huggingface_hub import login, repository
 from torch.utils.tensorboard import SummaryWriter
 
 # Login to the Hugging Face Hub
