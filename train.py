@@ -14,3 +14,5 @@ from torch.utils.tensorboard import SummaryWriter
 
 login('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')
 writer = SummaryWriter(log_dir='./new_runs')
+
+dataset = load_dataset("pirocheto/phishing-url")
