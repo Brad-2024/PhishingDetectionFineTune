@@ -104,7 +104,7 @@ optimizer = AdamW(model.parameters(), lr=5e-5)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 
-num_epochs = 1
+num_epochs = 4
 for epoch in range(num_epochs):
     model.train()
     total_loss = 0
@@ -150,36 +150,3 @@ print(f"Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score
 model_path = "distilbert_phish"
 tokenizer.save_pretrained(model_path)
 torch.save(model.state_dict(), f"{model_path}/pytorch_model.bin")
-
-# Your Hugging Face username
-username = "Brad-2024"
-# The name of your model, this will also be the repository name
-model_name = "distilbert_phish"
-
-# Initialize the HfApi instance
-api = HfApi()
-
-# Create a repository on Hugging Face Hub (if it doesn't already exist)
-# This step is optional if you've already created the repository through the web UI
-repo_url = create_repo(token=api.token, repo_id=model_name, exist_ok=True, private=True)
-
-# Define the path to your local model and tokenizer files
-model_file_path = "distilbert_phish/pytorch_model.bin"
-tokenizer_files_path = ["distilbert_phish/tokenizer_config.json", "distilbert_phish/vocab.txt"] # Add all tokenizer related files
-
-# Upload the model file
-upload_file(
-    path_or_fileobj=model_file_path,
-    path_in_repo="pytorch_model.bin",  # Path in the repository
-    repo_id=f"{username}/{model_name}",
-    token=api.token
-)
-
-# Upload tokenizer files
-for file_path in tokenizer_files_path:
-    upload_file(
-        path_or_fileobj=file_path,
-        path_in_repo=os.path.basename(file_path),  # Use the file name as the path in the repository
-        repo_id=f"{username}/{model_name}",
-        token=api.token
-    )
