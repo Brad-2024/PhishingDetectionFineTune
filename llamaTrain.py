@@ -16,28 +16,31 @@ from torch.utils.tensorboard import SummaryWriter
 login('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')
 writer = SummaryWriter(log_dir='./new_runs')
 
-# Assuming a compatible tokenizer and model for LLaMA are available
-tokenizer = AutoTokenizer.from_pretrained("Llama-2-7b")
-model_path = "meta-llama/Llama-2-7b"
-
-# Replace this with the actual path to your datasets
+# Load the data
 train_df = pd.read_csv('phishing_url_train.csv')
 test_df = pd.read_csv('phishing_url_test.csv')
 
-def tokenize_urls(urls):
-    return tokenizer(urls, padding=True, truncation=True, return_tensors='pt')
+# Initialize the tokenizer
+tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf')
 
+# Define function to tokenize URLs
+def tokenize_urls(urls):
+    return tokenizer(urls, padding=True, truncation=True, max_length=512, return_tensors='pt')
+
+# Extract numerical features and scale them
 def extract_and_scale_features(df):
     numerical_features = df.drop(columns=['url', 'label'])
     scaler = StandardScaler()
     scaled_features = scaler.fit_transform(numerical_features)
     return torch.tensor(scaled_features, dtype=torch.float)
 
+# Tokenize URLs and extract numerical features
 train_tokens = tokenize_urls(train_df['url'].tolist())
 test_tokens = tokenize_urls(test_df['url'].tolist())
 train_numerical_features = extract_and_scale_features(train_df)
 test_numerical_features = extract_and_scale_features(test_df)
 
+# Custom Dataset Class
 class PhishingURLDataset(Dataset):
     def __init__(self, tokens, numerical_features, labels):
         self.tokens = tokens
@@ -53,33 +56,34 @@ class PhishingURLDataset(Dataset):
         item['labels'] = self.labels[idx]
         return item
 
+# Prepare the datasets and dataloaders
 train_labels = torch.tensor(train_df['label'].values, dtype=torch.long)
 test_labels = torch.tensor(test_df['label'].values, dtype=torch.long)
-
 train_dataset = PhishingURLDataset(train_tokens, train_numerical_features, train_labels)
 test_dataset = PhishingURLDataset(test_tokens, test_numerical_features, test_labels)
-
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-# Custom Model Adaptation for LLaMA
-class LLaMAWithFeatures(nn.Module):
+# Custom Model
+class LlamaWithFeatures(nn.Module):
     def __init__(self, num_numerical_features):
-        super(LLaMAWithFeatures, self).__init__()
-        self.llama = AutoModel.from_pretrained(model_path)
+        super(LlamaWithFeatures, self).__init__()
+        self.llama = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf')
+        # Assuming a simple way to incorporate numerical features into the LLaMA model's embeddings
         self.num_features_processor = nn.Linear(num_numerical_features, 128)
-        self.classifier = nn.Linear(1024 + 128, 2)  # Adjust based on LLaMA's output features
+        self.classifier = nn.Linear(1024 + 128, 2)  # Adjusted for LLaMA's output size
 
     def forward(self, input_ids, attention_mask, numerical_features):
-        outputs = self.llama(input_ids=input_ids, attention_mask=attention_mask)
-        llama_output = outputs.last_hidden_state[:, 0, :]
+        # LLaMA model usage might differ; this is a placeholder
+        llama_output = self.llama(input_ids=input_ids, attention_mask=attention_mask).logits
+        pooled_output = llama_output[:, -1, :]  # Example: taking the last token's embedding
         numerical_features = self.num_features_processor(numerical_features)
-        combined_features = torch.cat((llama_output, numerical_features), dim=1)
+        combined_features = torch.cat((pooled_output, numerical_features), dim=1)
         logits = self.classifier(combined_features)
         return logits
 
 # Initialize the model
-model = LLaMAWithFeatures(num_numerical_features=train_numerical_features.shape[1])
+model = LlamaWithFeatures(num_numerical_features=train_numerical_features.shape[1])
 optimizer = AdamW(model.parameters(), lr=5e-5)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
