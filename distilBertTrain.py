@@ -92,7 +92,7 @@ optimizer = AdamW(model.parameters(), lr=5e-5)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 
-num_epochs = 10
+num_epochs = 20
 for epoch in range(num_epochs):
     model.train()
     total_loss = 0
