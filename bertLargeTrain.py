@@ -85,6 +85,25 @@ class BERTLargeWithFeatures(nn.Module):
         logits = self.classifier(combined_features)
         return logits
 
+def evaluate(model, data_loader, device):
+    model.eval()
+    predictions, true_labels = [], []
+    with torch.no_grad():
+        for batch in data_loader:
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            numerical_features = batch['numerical_features'].to(device)
+            labels = batch['labels'].to(device)
+            outputs = model(input_ids, attention_mask, numerical_features)
+            _, preds = torch.max(outputs, dim=1)
+            predictions.extend(preds.tolist())
+            true_labels.extend(labels.tolist())
+
+    accuracy = accuracy_score(true_labels, predictions)
+    precision = precision_score(true_labels, predictions, zero_division=0)
+    recall = recall_score(true_labels, predictions, zero_division=0)
+    f1 = f1_score(true_labels, predictions, zero_division=0)
+    return accuracy, precision, recall, f1
 
 # Training
 model = BERTLargeWithFeatures(num_numerical_features=train_numerical_features.shape[1])
@@ -92,7 +111,7 @@ optimizer = AdamW(model.parameters(), lr=5e-5)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 
-num_epochs = 20
+num_epochs = 50
 for epoch in range(num_epochs):
     model.train()
     total_loss = 0
@@ -107,7 +126,18 @@ for epoch in range(num_epochs):
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
-    print(f"Epoch {epoch + 1}, Loss: {total_loss / len(train_loader)}")
+    # Calculate training loss for the epoch
+    avg_loss = total_loss / len(train_loader)
+
+    # Evaluate the model on the test set after each epoch
+    accuracy, precision, recall, f1 = evaluate(model, test_loader, device)
+
+    # Print metrics
+    print(f"Epoch {epoch + 1}/{num_epochs}")
+    print(f"Training Loss: {avg_loss:.4f}")
+    print(
+        f"Validation Metrics: Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1:.4f}\n")
+
 
 
 # Evaluate
@@ -135,6 +165,6 @@ accuracy, precision, recall, f1 = evaluate(model, test_loader, device)
 print(f"Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score: {f1}")
 
 # Save and Upload
-model_path = "bert_phish"
+model_path = "bertLarge_phish"
 tokenizer.save_pretrained(model_path)
 torch.save(model.state_dict(), f"{model_path}/pytorch_model.bin")
