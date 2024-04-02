@@ -75,7 +75,7 @@ class BERTLargeWithFeatures(nn.Module):
         super(BERTLargeWithFeatures, self).__init__()
         self.bert = BertModel.from_pretrained("bert-large-uncased")
         self.num_features_processor = nn.Linear(num_numerical_features, 128)
-        self.classifier = nn.Linear(768 + 128, 2)
+        self.classifier = nn.Linear(1152, 2)
 
     def forward(self, input_ids, attention_mask, numerical_features):
         bert_output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
